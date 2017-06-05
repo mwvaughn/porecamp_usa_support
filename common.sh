@@ -6,7 +6,7 @@ export PROJCONF=${HOME}/.${PROJDIR}
 
 export WORKDIR="${STOCKYARD}/${PROJDIR}"
 export CORRALDIR="/corral-tacc/projects/${PROJDIR}"
-export CORRAL_BASE=${CORRALDIR}/shared/
+export CORRAL_BASE=${CORRALDIR}/scratch/
 export WORK_BASE=${WORKDIR}/staging
 
 CONTAINER_ROOT=${WORKDIR}/containers
@@ -18,12 +18,14 @@ export TACC_ALBACORE="${CONTAINER_ROOT}/${TACC_ALBACORE_1_1_2}"
 export TACC_ALBACORE_VERS=1_1_2
 export ALBA_CONFIG="/opt/albacore/r94_250bps_2d.cfg"
 export ALBA_BATCH=4000
+export ALBA_BARCODE="--barcode"
+
 export THREADS=23
 # Time budget for 60,000 5000bp fast5 files
 export RUNTIME_PER_UNIT=2
 
 # Baseline date for rsync, in seconds
-export STARTDATE=$(date +%s -d"Fri Jun  2 08:00:00 CDT 2017")
+export STARTDATE=$(date +%s -d"Mon Jun  5 05:00:00 CDT 2017")
 # Target seconds between rsync runs
 # 30 min
 export RSYNC_REPEAT=$(echo "60 * 30" | bc)

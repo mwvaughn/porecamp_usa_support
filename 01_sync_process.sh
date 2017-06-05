@@ -201,6 +201,7 @@ config="$ALBA_CONFIG"
 workerThreads="$THREADS"
 outputFormat="fastq,fast5"
 recursive="--recursive"
+barcoding="$ALBA_BARCODE"
 
 for SAMPLE in \`ls .\`
 do
@@ -214,7 +215,7 @@ mkdir -p \$save_path
 time singularity --quiet run $TACC_ALBACORE \
 --input \$input \
 --save_path \$save_path \
---config \$config \$recursive \
+--config \$config \$recursive \$barcoding \
 --output_format \$outputFormat \
 --worker_threads \$workerThreads \
 --files_per_batch_folder \$filesPerbatchFolder
