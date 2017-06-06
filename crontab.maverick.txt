@@ -1,2 +1,2 @@
-*/15 * * * * . ~/.profile; bash /work/01374/vaughn/porecamp_usa/scripts/00_sync_master.sh > /work/01374/vaughn/porecamp_usa/logs/00_sync_master.log
-*/20 * * * * . ~/.profile; bash /work/01374/vaughn/porecamp_usa/scripts/03_sync_completed.sh > /work/01374/vaughn/porecamp_usa/logs/03_sync_completed.log
+*/15 * * * * . $HOME/.bashrc; bash /work/01374/vaughn/porecamp_usa/scripts/00_sync_master.sh > /work/01374/vaughn/porecamp_usa/logs/00_sync_master.log
+*/20 * * * * . $HOME/.bashrc; bash /work/01374/vaughn/porecamp_usa/scripts/03_sync_completed.sh > /work/01374/vaughn/porecamp_usa/logs/03_sync_completed.log

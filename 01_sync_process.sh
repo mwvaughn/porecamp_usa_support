@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # Assumption
 # inbound: /corral-tacc/projects/porecamp_usa/scratch/MACHINE
@@ -56,7 +56,7 @@ init(){
 	else
 		LASTRUN=$(cat "${PROJCONF}/${MACHINE}.last.time")
 	fi
-	LASTRUN_NOW=$(date +%s)
+	LASTRUN_NOW=$(date +%s --date '-2 min')
 	echo -n $LASTRUN_NOW > "${PROJCONF}/${MACHINE}.last.time"
 	export LASTRUN
 
@@ -195,6 +195,7 @@ newgrp $PROJGRP
 chmod g+srwx .
 chgrp $PROJGRP .
 
+export LC_ALL=C
 LOG=$CPDEST/albacore-$TACC_ALBACORE_VERS-$THREADS-$RUN.log
 
 cd $CPDEST/inputs

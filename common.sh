@@ -78,14 +78,6 @@ function check_path {
 	stat $_PATH >/dev/null 2>&1 || { die "Can't find or access $_PATH"; }
 }
 
-function get_container {
-
-	_CONTAINER_NAME=$1
-	CONTAINER_PATH=$WORKDIR/containers/$_CONTAINER_NAME
-	check_path $CONTAINER_PATH
-	echo "${CONTAINER_PATH}"
-}
-
 # Makes a directory and tries really hard to make it group readable
 mkdir_pems(){
 
