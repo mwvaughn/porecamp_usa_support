@@ -1,7 +1,27 @@
 #!/usr/bin/env bash
 
+# Assumption
+# inbound: /corral-tacc/projects/porecamp_usa/scratch/MACHINE
+# processing: WORK/staging/MACHINE/RUN
+# parameterize 01_sync_process passing in $1
+# configs per machine are stored in scripts/MACHINE.sh
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$DIR/common.sh"
+
+MACHINE=$1
+if [ ! -z "$2" ];
+then
+	CONFIG=$2
+else
+	CONFIG="$DIR/config_${MACHINE}.sh"
+fi
+if [ -f "$CONFIG" ]
+then
+	source "$CONFIG"
+else
+	die "Config $CONFIG was not accessible"
+fi
 
 LASTRUN=
 RUN=
@@ -30,24 +50,24 @@ init(){
 
 	LASTRUN=$(date +%s)
 
-	if [ ! -f  "${PROJCONF}/last.time" ]
+	if [ ! -f  "${PROJCONF}/${MACHINE}.last.time" ]
 	then
 		LASTRUN=${STARTDATE}
 	else
-		LASTRUN=$(cat "${PROJCONF}/last.time")
+		LASTRUN=$(cat "${PROJCONF}/${MACHINE}.last.time")
 	fi
 	LASTRUN_NOW=$(date +%s)
-	echo -n $LASTRUN_NOW > "${PROJCONF}/last.time"
+	echo -n $LASTRUN_NOW > "${PROJCONF}/${MACHINE}.last.time"
 	export LASTRUN
 
-	if [ ! -f  "${PROJCONF}/last.runid" ]
+	if [ ! -f  "${PROJCONF}/${MACHINE}.last.runid" ]
 	then
 		RUN=0
 	else
-		RUN=$(cat "${PROJCONF}/last.runid")
+		RUN=$(cat "${PROJCONF}/${MACHINE}.last.runid")
 		RUN=$((RUN+1))
 	fi
-	echo -n $RUN > "${PROJCONF}/last.runid"
+	echo -n $RUN > "${PROJCONF}/${MACHINE}.last.runid"
 	export RUN
 	export CWD=$(pwd)
 
@@ -77,14 +97,6 @@ cp_relpath(){
 	DESTPATH=$(echo "$SOURCEPATH" | sed -e 's|'$CORRAL_BASE'|'$CPDEST'/|g')
 	cp -af "$SOURCEPATH" "$DESTPATH"
 
-# 	if [ "$IGNORE_LOCK" = 1 ]
-# 	then
-# 		cp -af "$SOURCEPATH" "$DESTPATH"
-# 	elif [ ! -f "${SOURCEPATH}.${RUN}.lock" ]
-# 	then
-# 		cp -af "$SOURCEPATH" "$DESTPATH" && touch "${SOURCEPATH}.${RUN}.lock"
-# 	fi
-
 }
 export -f cp_relpath
 
@@ -112,9 +124,10 @@ export -f calc_hours
 
 # Main code
 init
+
 info "Run: $RUN"
 info "Last sync: $(date --date @$LASTRUN)"
-info "Source: $CORRAL_BASE"
+info "Source: $CORRAL_BASE/${MACHINE}"
 
 # Compute -ctime date range for sync
 #cmin >=  (TIMENOW - LASTRUN) seconds / 60 sec/min
@@ -131,34 +144,41 @@ info "  Not within the last $MIN m"
 # Create run-specific directory (and kids)
 info "Creating work directories..."
 RUNDIR=$(zero_pad $RUN)
-export CPDEST="$WORK_BASE/$RUNDIR"
+export CPDEST="$WORK_BASE/$MACHINE/$RUNDIR"
 {
   mkdir_pems $CPDEST && mkdir_pems $CPDEST/inputs && mkdir_pems $CPDEST/outputs && info "Success" ;
 } || {
   die "Failed to create $CPDEST or children."
 }
-info "Destination: $WORK_BASE/$RUNDIR"
+info "Destination: $CPDEST"
 
 # Look for files changed since last run, but not within last 10 min
 #	use chained -ctime eventually
 info "Syncing new files from Corral..."
 SECONDS=0
 {
-  time cd $CORRAL_BASE && find . -type f -cmin -$CTIME1 -cmin +$CTIME2 -not -name "*tmp*" | xargs -n1 -I '{}' -P 12 rsync $_DRYRUN --log-file=$CPDEST/sync.log -qartRh "{}" $CPDEST/inputs/  && info "Success" ;
+  cd $CORRAL_BASE/$MACHINE && touch $CPDEST/sync-in.log && find . -type f -cmin -$CTIME1 -cmin +$CTIME2 -not -name "*tmp*" | xargs -n1 -I '{}' -P 12 rsync $_DRYRUN --log-file=$CPDEST/sync-in.log -qartRh "{}" $CPDEST/inputs/  && info "Success" ;
 } || {
-  die "No candidate files found in $CORRAL_BASE."
+  die "No candidate files found in $CORRAL_BASE/$MACHINE"
 }
 info "${SECONDS}s elapsed"
 cd $CWD
 
-COUNTFILES=$(cat "$CPDEST/sync.log" | grep -c ">f+++++++++")
+COUNTFILES=$(cat "$CPDEST/sync-in.log" | grep ">f+++++++++" | grep -c "fast5")
 info "$COUNTFILES files transferred"
 RUNTIME_HOURS=$(calc_hours $COUNTFILES)
 RUNTIME_HOURS=$(printf "%02d\n" $RUNTIME_HOURS)
+
+if [ "$COUNTFILES" -eq "0" ];
+then
+	warn "No files found to process"
+	exit 0
+fi
+
 info "Estimated albacore runtime: $RUNTIME_HOURS h"
 
-info "Creating and submitting basecalling jobs..."
-touch $CPDEST/.job.lock
+info "Creating basecalling job file..."
+touch "$CPDEST/.job.lock"
 
 cat <<EOF > $CPDEST/job-$RUN-slurm.sh
 #!/bin/bash
@@ -177,30 +197,16 @@ chgrp $PROJGRP .
 
 LOG=$CPDEST/albacore-$TACC_ALBACORE_VERS-$THREADS-$RUN.log
 
-# if [ -f $CPDEST/.job.lock.run ]
-# then
-# 	echo "It looks like this run is already being processed" > \$LOG
-# 	exit 0
-# fi
-#
-# if [ -f $CPDEST/.job.lock ]
-# then
-# 	touch $CPDEST/.job.lock.run
-# else
-# 	echo "It doesn't look like the sync job for this run is done"
-# 	exit 0
-# fi
-
 cd $CPDEST/inputs
 
 module load singularity/2.2.1
 
 # Common options
-filesPerbatchFolder="$ALBA_BATCH"
-config="$ALBA_CONFIG"
 workerThreads="$THREADS"
-outputFormat="fastq,fast5"
-recursive="--recursive"
+config="$ALBA_CONFIG"
+filesPerbatchFolder="$ALBA_BATCH"
+outputFormat="$ALBA_FORMAT"
+recursive="$ALBA_RECURSIVE"
 barcoding="$ALBA_BARCODE"
 
 for SAMPLE in \`ls .\`
@@ -215,7 +221,7 @@ mkdir -p \$save_path
 time singularity --quiet run $TACC_ALBACORE \
 --input \$input \
 --save_path \$save_path \
---config \$config \$recursive \$barcoding \
+--config \$config \$recursive \$barcoding $ALBA_EXTRA_OPTS\
 --output_format \$outputFormat \
 --worker_threads \$workerThreads \
 --files_per_batch_folder \$filesPerbatchFolder
@@ -223,7 +229,7 @@ time singularity --quiet run $TACC_ALBACORE \
 done
 
 # ONLY do this if no error
-rm $CPDEST/.job.lock
+rm $CPDEST/.job.lock && touch $CPDEST/.job.sync
 
 # A secondary sync script picks up $CPDEST folders
 # where lock has been released and does a one-way
@@ -231,6 +237,4 @@ rm $CPDEST/.job.lock
 # $CORRAL_BASE
 
 EOF
-
-sbatch $CPDEST/job-$RUN-slurm.sh
 

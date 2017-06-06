@@ -14,24 +14,24 @@ TACC_ALBACORE_1_1_1=tacc_albacore_1.1.1-2017-05-26-0d20c97af8d1.img
 TACC_ALBACORE_1_1_2=tacc_albacore_1.1.2-2017-06-01-9a92467ab3d4.img
 TACC_ALBACORE_1_2_1=tacc_albacore_1.2.1-2017-06-02-641365ec15d7.img
 
+export THREADS=23
 export TACC_ALBACORE="${CONTAINER_ROOT}/${TACC_ALBACORE_1_1_2}"
 export TACC_ALBACORE_VERS=1_1_2
-export ALBA_CONFIG="/opt/albacore/r94_250bps_2d.cfg"
+export ALBA_CONFIG="/opt/albacore/r95_450bps_linear.cfg"
 export ALBA_BATCH=4000
-export ALBA_BARCODE="--barcode"
-
-export THREADS=23
-# Time budget for 60,000 5000bp fast5 files
-export RUNTIME_PER_UNIT=2
+export ALBA_BARCODE="--barcoding"
+export ALBA_FORMAT="fastq,fast5"
+export ALBA_RECURSIVE="--recursive"
+export ALBA_EXTRA_OPTS=""
 
 # Baseline date for rsync, in seconds
-export STARTDATE=$(date +%s -d"Mon Jun  5 05:00:00 CDT 2017")
+export STARTDATE=$(date +%s -d"Mon Jun  5 17:00:00 CDT 2017")
 # Target seconds between rsync runs
-# 30 min
-export RSYNC_REPEAT=$(echo "60 * 30" | bc)
+# 15 min
+export RSYNC_REPEAT=$(echo "60 * 15" | bc)
 # Delay in seconds before a file is considered to be done writing
-# 5 min
-export RSYNC_DELAY=$(echo "60 * 5" | bc)
+# 2 min
+export RSYNC_DELAY=$(echo "60 * 2" | bc)
 
 # Test for root
 if [ $(id -u) = 0 ]; then
@@ -85,6 +85,19 @@ function get_container {
 	check_path $CONTAINER_PATH
 	echo "${CONTAINER_PATH}"
 }
+
+# Makes a directory and tries really hard to make it group readable
+mkdir_pems(){
+
+	# Check for existence first because while mkdir -p is imdepotent, the
+	# permissions operations are not and are thus expensive
+	if [ ! -d $1 ]
+	then
+		mkdir -p $1 && chgrp ${PROJGRP} $1 && chmod g+srwx,o+rx,u+rwx $1
+	fi
+
+}
+export -f mkdir_pems
 
 check_path "$WORKDIR"
 # do not check for Corral on Hikari compute node

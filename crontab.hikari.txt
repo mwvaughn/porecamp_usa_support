@@ -1,0 +1,1 @@
+*/20 * * * * ~/.profile; bash /work/01374/vaughn/porecamp_usa/scripts/02_submit_batches.sh > /work/01374/vaughn/porecamp_usa/logs/02_submit_batches.log
